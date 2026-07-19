@@ -1,0 +1,15 @@
+{# Inputs: angle, length, length_words, today, notes (title/path/tags/body), published_posts. #}
+Angle: {{ angle or "choose the strongest single thread through these notes" }}
+Target length: {{ length }} ({{ length_words }} words)
+Today's date: {{ today }}
+
+Source notes ({{ notes | length }}):
+{% for note in notes %}
+<note path="{{ note.path }}" title="{{ note.title }}" tags="{{ note.tags | join(',') }}">
+{{ note.body }}
+</note>
+{% endfor %}
+
+Existing published posts (avoid duplicating; link with [title](/slug) where relevant):
+{% for post in published_posts %}- {{ post.title }} (/{{ post.slug }})
+{% endfor %}
