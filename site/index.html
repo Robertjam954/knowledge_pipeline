@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Knowledge Pipeline - local-first personal knowledge system</title>
+<meta name="description" content="Extract from the web and Apple Notes into an Obsidian vault, answer questions over it with a local model and inline citations, and turn notes into published blog posts. FastAPI + numpy/BM25 hybrid RAG + LM Studio (Gemma), no external database." />
+<meta property="og:title" content="Knowledge Pipeline - local-first personal knowledge system" />
+<meta property="og:description" content="Notes in. Cited answers and published posts out. Plain-text markdown is the only source of truth - no external database." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://robertjam954.github.io/knowledge_pipeline/" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0b0f17;
+    --panel: #121826;
+    --panel-2: #0f1420;
+    --border: #1e2838;
+    --text: #e6ebf5;
+    --muted: #9aa7bd;
+    --accent: #6ea8fe;
+    --accent-2: #8b7cff;
+    --good: #4ade80;
+    --chip: #182234;
+    --radius: 14px;
+    --max: 1080px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 70% -10%, #16233b 0%, transparent 60%),
+                radial-gradient(900px 500px at 0% 0%, #1a1730 0%, transparent 55%),
+                var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: blur(10px);
+    background: rgba(11,15,23,0.72);
+    border-bottom: 1px solid var(--border);
+  }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 0 14px var(--accent); }
+  .nav-links { display: flex; gap: 22px; align-items: center; font-size: 14px; }
+  .nav-links a { color: var(--muted); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+  header.hero { padding: 84px 0 56px; }
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--muted);
+    background: var(--chip); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 999px; margin-bottom: 22px;
+  }
+  .status .live { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  h1 {
+    font-size: clamp(34px, 6vw, 58px);
+    line-height: 1.05; letter-spacing: -0.03em; margin: 0 0 18px;
+    font-weight: 800;
+    background: linear-gradient(180deg, #ffffff 0%, #b7c4dc 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { font-size: clamp(16px, 2.2vw, 20px); color: var(--muted); max-width: 700px; margin: 0 0 32px; }
+  .lede b { color: #c8d3e6; font-weight: 600; }
+  .cta { display: flex; flex-wrap: wrap; gap: 14px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 13px 22px; border-radius: 11px; font-weight: 600; font-size: 15px;
+    border: 1px solid transparent; cursor: pointer;
+  }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0a0e16; }
+  .btn.primary:hover { text-decoration: none; filter: brightness(1.08); }
+  .btn.ghost { background: var(--panel); border-color: var(--border); color: var(--text); }
+  .btn.ghost:hover { text-decoration: none; border-color: #33415a; }
+  .btn .arrow { transition: transform .2s; }
+  .btn:hover .arrow { transform: translateX(3px); }
+
+  .metastrip { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-top: 30px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .metastrip b { color: var(--good); font-weight: 500; }
+  .metastrip .accent { color: var(--accent); }
+
+  section { padding: 46px 0; }
+  .eyebrow { font-size: 13px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); font-weight: 600; margin-bottom: 12px; }
+  h2 { font-size: clamp(24px, 3.4vw, 34px); letter-spacing: -0.02em; margin: 0 0 10px; font-weight: 700; }
+  .section-sub { color: var(--muted); max-width: 660px; margin: 0 0 30px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 22px;
+    transition: transform .2s, border-color .2s;
+  }
+  .card:hover { transform: translateY(-3px); border-color: #33415a; }
+  .card .ico { font-size: 22px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 8px; font-size: 17px; font-weight: 650; }
+  .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .card code { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--accent); background: var(--chip); padding: 1px 6px; border-radius: 5px; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 12px; }
+  .flow .step {
+    flex: 1 1 150px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; position: relative;
+  }
+  .flow .step .n { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: var(--accent); }
+  .flow .step h4 { margin: 6px 0 4px; font-size: 15px; }
+  .flow .step p { margin: 0; font-size: 13px; color: var(--muted); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 13px;
+    background: var(--chip); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 9px; color: #c3cfe4;
+  }
+  .chip b { color: var(--accent); font-weight: 500; }
+
+  .arch {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 26px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    font-size: 13.5px; color: var(--muted); overflow-x: auto; line-height: 1.85;
+  }
+  .arch .l { color: var(--text); }
+  .arch .a { color: var(--accent); }
+  .arch .v { color: var(--accent-2); }
+  .arch .g { color: var(--good); }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+  .stat {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+  .stat .num { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 30px; font-weight: 500; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat .num.good { color: var(--good); }
+  .stat .num.accent { color: var(--accent); }
+  .stat .lab { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .stat .lab b { display: block; color: #c8d3e6; font-weight: 600; font-size: 13.5px; margin-bottom: 2px; }
+
+  footer { border-top: 1px solid var(--border); padding: 34px 0 60px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+  footer code { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 12.5px; color: #c3cfe4; }
+  .note { font-size: 12.5px; color: #6b7789; margin-top: 8px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) { .status .live { animation: none; } .btn .arrow { transition: none; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span> Knowledge Pipeline</div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#stack">Architecture</a>
+      <a href="https://github.com/Robertjam954/knowledge_pipeline">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="status"><span class="live"></span> Local-first - the Obsidian vault is the only source of truth</span>
+    <h1>Notes in. Cited answers and published posts out.</h1>
+    <p class="lede">
+      Knowledge Pipeline extracts from the web and Apple Notes into an <b>Obsidian vault</b>,
+      answers questions over it with a <b>local model</b> and inline citations, and turns those
+      notes into <b>published blog posts</b> - all with plain-text markdown as the only thing that persists.
+      No external database. Delete the cache any time and rebuild.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/Robertjam954/knowledge_pipeline" target="_blank" rel="noopener">
+        View source <span class="arrow">-&gt;</span>
+      </a>
+      <a class="btn ghost" href="#how">See how it works</a>
+    </div>
+    <div class="metastrip">
+      <span>Stage: <span class="accent">scaffold complete</span> - ingestion next</span>
+      <span><b>24</b> tests passing</span>
+      <span><b>0</b> databases</span>
+      <span>FastAPI + numpy/BM25 RAG + LM Studio</span>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="eyebrow">What it does</div>
+    <h2>A knowledge system that runs on your machine</h2>
+    <p class="section-sub">Six pieces, one rule: everything derives from markdown you can read, edit, and throw away the cache of.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="ico">🗄️</div>
+        <h3>Plain-text vault</h3>
+        <p>No Postgres, no ChromaDB. Markdown plus <code>[[wikilinks]]</code> is the source of truth; BM25 and the graph rebuild in memory and vectors sit in an <code>.npz</code> cache.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔎</div>
+        <h3>Hybrid retrieval</h3>
+        <p>numpy cosine and BM25 rankings are fused with reciprocal-rank fusion (<code>k=60</code>), then the retriever follows <code>[[wikilinks]]</code> one hop out to pull in what both signals miss.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧷</div>
+        <h3>Cited answers</h3>
+        <p>Gemma answers strictly from retrieved notes and marks every claim with a bracketed source like <code>[1]</code>. No relevant note, no answer - it says so instead of guessing.</p>
+      </div>
+      <div class="card">
+        <div class="ico">📝</div>
+        <h3>Three-pass drafting</h3>
+        <p>A note becomes a post through <code>draft → rules edit → clarity edit</code>. A code validator then blocks anything that breaks the enforced rules before it can publish.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🏠</div>
+        <h3>Local by default</h3>
+        <p>Gemma 3 runs through LM Studio for private, offline QA. Flip <code>KP_LLM_PROVIDER=anthropic</code> to route drafting and extraction through Claude - same call site, one setting.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧠</div>
+        <h3>Agent memory</h3>
+        <p>The agent's <code>remember</code> / <code>recall</code> tools write to a <code>Memory/</code> folder in the same vault - searchable like everything else, and never used as a blog source.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="background: linear-gradient(180deg, transparent, rgba(18,24,38,0.5), transparent);">
+  <div class="wrap">
+    <div class="eyebrow">How it works</div>
+    <h2>From a link to a cited answer or a post</h2>
+    <p class="section-sub">The path a source travels, from ingestion to something you can question or publish.</p>
+    <div class="flow">
+      <div class="step"><div class="n">01</div><h4>Ingest</h4><p>Web, YouTube, papers, and Apple Notes become atomic Zettelkasten notes in the vault.</p></div>
+      <div class="step"><div class="n">02</div><h4>Index</h4><p>Chunk each note, embed to an <code>.npz</code> cache, build BM25 and the wikilink graph in memory.</p></div>
+      <div class="step"><div class="n">03</div><h4>Retrieve</h4><p>Fuse vector and keyword ranks with RRF, then expand along <code>[[wikilinks]]</code>.</p></div>
+      <div class="step"><div class="n">04</div><h4>Answer</h4><p>Gemma responds with numbered citations - or drafts a post from the same notes.</p></div>
+      <div class="step"><div class="n">05</div><h4>Publish</h4><p>The validator gates the draft, a Vercel deploy hook fires, a Medium mirror is optional.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="stack">
+  <div class="wrap">
+    <div class="eyebrow">Under the hood</div>
+    <h2>Architecture</h2>
+    <p class="section-sub">Five kinds of input converge on one markdown vault, then fan back out into answers and posts. The vault in the middle is the only thing that persists.</p>
+    <div class="arch">
+<span class="l">web / YouTube / papers</span> ──┐<br />
+<span class="l">Apple Notes</span> (importer) ────┼──▸ <span class="v">Obsidian vault</span> (markdown + <span class="a">[[wikilinks]]</span>)&nbsp;&nbsp;<span class="g"># only source of truth</span><br />
+<span class="l">agent "remember"</span> ────────┘&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├──▸ <span class="a">hybrid RAG</span> — numpy cosine + BM25 → RRF → graph expansion<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="g">QA with [n] citations</span> — Gemma via LM Studio<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└──▸ <span class="a">blog drafts</span> — draft → rules edit → clarity edit<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="g">Vercel deploy hook / Medium draft</span><br />
+    </div>
+    <div style="height:22px"></div>
+    <div class="chips">
+      <span class="chip"><b>FastAPI</b> + agent loop</span>
+      <span class="chip"><b>numpy</b> + <b>rank-bm25</b></span>
+      <span class="chip"><b>in-memory</b> wikilink graph</span>
+      <span class="chip"><b>trafilatura</b> web ingest</span>
+      <span class="chip"><b>LM Studio</b> - Gemma 3</span>
+      <span class="chip"><b>Claude</b> (opt-in)</span>
+      <span class="chip"><b>Jinja2</b> prompts</span>
+      <span class="chip"><b>React 19</b> + TanStack Query</span>
+      <span class="chip"><b>Next.js</b> blog kit - Vercel</span>
+    </div>
+  </div>
+</section>
+
+<section id="numbers" style="background: linear-gradient(180deg, transparent, rgba(18,24,38,0.5), transparent);">
+  <div class="wrap">
+    <div class="eyebrow">By the numbers</div>
+    <h2>Built to run, not just to demo</h2>
+    <p class="section-sub">Typed, tested, and deliberately dependency-light - the scaffold is complete and green.</p>
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="num good">24</div>
+        <div class="lab"><b>tests passing</b>vault · chunker · graph · retriever · validator</div>
+      </div>
+      <div class="stat">
+        <div class="num accent">0</div>
+        <div class="lab"><b>databases</b>markdown + a rebuildable cache</div>
+      </div>
+      <div class="stat">
+        <div class="num">12</div>
+        <div class="lab"><b>API endpoints</b>index · search · ask · ingest · blog · agent</div>
+      </div>
+      <div class="stat">
+        <div class="num">10</div>
+        <div class="lab"><b>agent tools</b>one registry, shared by loop and routes</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="run">
+  <div class="wrap">
+    <div class="eyebrow">Run it</div>
+    <h2>Fully offline in two commands</h2>
+    <p class="section-sub">A local-first stack: your machine, your models, your notes. Needs LM Studio serving Gemma 3 and an embedding model on port 1234.</p>
+    <div class="arch">
+<span class="g"># backend (port 8600)</span><br />
+<span class="a">$</span> cd backend &amp;&amp; python3 -m venv .venv &amp;&amp; .venv/bin/pip install -e ".[dev]"<br />
+<span class="a">$</span> cp ../.env.example .env&nbsp;&nbsp;<span class="g"># set vault path + model names</span><br />
+<span class="a">$</span> .venv/bin/uvicorn app.main:app --reload --port 8600<br />
+<br />
+<span class="g"># index the vault, then ask</span><br />
+<span class="a">$</span> curl -X POST localhost:8600/index/refresh<br />
+<span class="a">$</span> curl -X POST localhost:8600/ask -d '{"question":"..."}'<br />
+<br />
+<span class="g"># frontend shell (port 5273, proxies /api → 8600)</span><br />
+<span class="a">$</span> cd frontend &amp;&amp; npm install &amp;&amp; npm run dev<br />
+    </div>
+    <div style="height:26px"></div>
+    <a class="btn primary" href="https://github.com/Robertjam954/knowledge_pipeline" target="_blank" rel="noopener">
+      Get the source <span class="arrow">-&gt;</span>
+    </a>
+    <p class="note">Runs entirely on your machine with LM Studio - notes never leave it. Set an Anthropic key and flip one env var to route drafting through Claude instead.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div>Built by Robert James · AI Engineering portfolio</div>
+      <div class="note">Local-first - your machine, your models, your notes</div>
+    </div>
+    <div class="nav-links">
+      <a href="https://github.com/Robertjam954/knowledge_pipeline">Source</a>
+      <a href="https://lmstudio.ai" target="_blank" rel="noopener">LM Studio</a>
+      <a href="https://obsidian.md" target="_blank" rel="noopener">Obsidian</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
