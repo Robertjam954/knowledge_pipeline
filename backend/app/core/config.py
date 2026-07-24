@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     # Local models via LM Studio's OpenAI-compatible server
     lmstudio_base_url: str = "http://localhost:1234/v1"
     lmstudio_api_key: str = "lm-studio"  # LM Studio ignores the value but the client requires one
-    chat_model: str = "google/gemma-3-12b"
-    embed_model: str = "text-embedding-nomic-embed-text-v1.5"
+    chat_model: str = "gemma-3-270m-it-qat"
+    embed_model: str = "text-embedding-nomic-embed-text-v1.5-embedding"
 
     # Optional Claude for drafting/extraction quality (pipeline model per user standard)
     llm_provider: str = "lmstudio"  # "lmstudio" | "anthropic"
@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Retrieval
     chunk_chars: int = 1000
     chunk_overlap_chars: int = 100
+    # Max chars of page text sent to the chat model for extraction/summary; keep well
+    # under the model's context window (a 270M/4096-token model overflows past ~16k chars).
+    ingest_max_chars: int = 12000
     top_k: int = 8
     vector_weight: float = 0.6  # BM25 gets the remainder
     graph_expansion: bool = True

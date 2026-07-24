@@ -109,7 +109,7 @@ async def ingest_url(url: str, mode: str = "article", atomic: bool = True,
 
     if mode == "paper":
         system = _env.get_template("paper_summary.system.jinja2").render()
-        summary = await chat(system, text[:60000])
+        summary = await chat(system, text[:settings.ingest_max_chars])
         path = write_note(settings.vault_path, settings.research_folder, f"{title} (paper summary)",
                           summary, meta=base_meta)
         written.append(str(path))
@@ -121,7 +121,7 @@ async def ingest_url(url: str, mode: str = "article", atomic: bool = True,
 
     if atomic:
         system = _env.get_template("note_extract.system.jinja2").render()
-        raw = await chat(system, text[:60000])
+        raw = await chat(system, text[:settings.ingest_max_chars])
         try:
             start, end = raw.find("["), raw.rfind("]")
             atoms = json.loads(raw[start : end + 1]) if start != -1 else []
