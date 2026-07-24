@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import Ingest from './Ingest';
 
-// Shell only: tabs map 1:1 to backend routes. Components get built out per STATUS.md.
+// Tabs map 1:1 to backend routes. Panels get built out per STATUS.md.
 const TABS = ['Ask', 'Search', 'Graph', 'Ingest', 'Blog', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
 
@@ -31,11 +32,15 @@ export default function App() {
         ))}
       </nav>
       <main style={{ border: '1px solid #e2e2e2', borderRadius: 8, padding: 24, minHeight: 320 }}>
-        <p style={{ color: '#666' }}>
-          {tab} panel - not yet implemented. Backend routes are live; see STATUS.md for the build
-          order (Ask with citations first, then Search score breakdown, Graph view, Ingest
-          dashboard, Blog manager, Settings).
-        </p>
+        {tab === 'Ingest' ? (
+          <Ingest />
+        ) : (
+          <p style={{ color: '#666' }}>
+            {tab} panel - not yet implemented. Backend routes are live; see STATUS.md for the build
+            order (Ask with citations first, then Search score breakdown, Graph view, Ingest
+            dashboard, Blog manager, Settings).
+          </p>
+        )}
       </main>
     </div>
   );

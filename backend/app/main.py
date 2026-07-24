@@ -43,6 +43,15 @@ class IngestUrlBody(BaseModel):
     atomic: bool = True
 
 
+class CrawlBody(BaseModel):
+    url: str
+    mode: str = "article"
+    atomic: bool = True
+    limit: int = 50
+    same_domain: bool = True
+    path_contains: str | None = None
+
+
 class RememberBody(BaseModel):
     text: str
     topic: str
@@ -88,6 +97,18 @@ async def ingest_url_route(body: IngestUrlBody) -> dict:
     from app.ingest.web import ingest_url
 
     result = await ingest_url(body.url, mode=body.mode, atomic=body.atomic)
+    await retriever.refresh()
+    return result
+
+
+@app.post("/ingest/crawl")
+async def ingest_crawl_route(body: CrawlBody) -> dict:
+    from app.ingest.web import crawl_resources
+
+    result = await crawl_resources(
+        body.url, mode=body.mode, atomic=body.atomic, limit=body.limit,
+        same_domain=body.same_domain, path_contains=body.path_contains,
+    )
     await retriever.refresh()
     return result
 

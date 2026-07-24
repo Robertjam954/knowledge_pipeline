@@ -24,6 +24,7 @@ this file honest.
 - [ ] Install LM Studio models: Gemma 3 chat + an embedding model; verify /index/refresh and /ask against the real vault
 - [ ] Create the working vault at ~/loc/vault (outside iCloud) and set KP_VAULT_PATH
 - [ ] First real ingestion: 3-5 web sources + 1 paper via /ingest/url
+- [x] Bulk ingestion: crawl a hub/index page and ingest every linked resource (/ingest/crawl, `crawl_resources` agent tool)
 - [ ] Apple Notes bulk import via Obsidian Importer plugin
 - [ ] npm install + verify frontend shell against running backend
 
@@ -31,7 +32,7 @@ this file honest.
 - [ ] Ask panel with streaming answer + citation pills
 - [ ] Search view with score breakdown (vector/bm25/graph)
 - [ ] Graph view of wikilink neighborhood
-- [ ] Ingest dashboard with note preview before write
+- [x] Ingest dashboard: single-URL + hub-crawl forms with per-link results (note preview before write still TODO)
 - [ ] Blog manager (list, violations, publish button, deploy status)
 - [ ] Settings panel
 
