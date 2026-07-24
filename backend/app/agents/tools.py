@@ -69,6 +69,17 @@ async def ingest_url_tool(url: str, mode: str = "article", atomic: bool = True) 
     return result
 
 
+async def crawl_resources_tool(url: str, mode: str = "article", atomic: bool = True,
+                               limit: int = 50, same_domain: bool = True,
+                               path_contains: str | None = None) -> dict:
+    from app.ingest.web import crawl_resources
+
+    result = await crawl_resources(url, mode=mode, atomic=atomic, limit=limit,
+                                   same_domain=same_domain, path_contains=path_contains)
+    await retriever().refresh()
+    return result
+
+
 async def draft_blog_post(source_notes: list[str], angle: str | None = None,
                           length: str = "standard") -> dict:
     return await draft_post(source_notes, angle=angle, length=length)
@@ -140,6 +151,17 @@ TOOLS: dict[str, dict] = {
                            "mode": {"type": "string", "enum": ["article", "paper"]},
                            "atomic": {"type": "boolean"}}, ["url"]),
         "handler": ingest_url_tool,
+    },
+    "crawl_resources": {
+        "schema": _schema("crawl_resources",
+                          "Ingest every resource linked from a hub/index page into the vault.",
+                          {"url": {"type": "string"},
+                           "mode": {"type": "string", "enum": ["article", "paper"]},
+                           "atomic": {"type": "boolean"},
+                           "limit": {"type": "integer"},
+                           "same_domain": {"type": "boolean"},
+                           "path_contains": {"type": "string"}}, ["url"]),
+        "handler": crawl_resources_tool,
     },
     "draft_blog_post": {
         "schema": _schema("draft_blog_post", "Draft a blog post from vault notes (never publishes).",
